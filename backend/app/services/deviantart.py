@@ -2,6 +2,49 @@ from __future__ import annotations
 import time
 import httpx
 from app.config import settings
+from logging import getLogger
+
+logger = getLogger(__name__)
+
+# Keywords to exclude from image searches (proper names, specific references, inappropriate terms)
+EXCLUDED_KEYWORDS = {
+    "child",
+    "children",
+    "baby",
+    "infant",
+    "toddler",
+    "barovia",
+    "strahd",
+    "weeping",
+}
+
+
+def filter_keywords(keywords: list[str]) -> list[str]:
+    """
+    Filter out proper names, specific references, and excluded terms from keyword list.
+    Returns only generic, usable keywords for image searches.
+    """
+    filtered = []
+    for keyword in keywords:
+        keyword_lower = keyword.lower().strip()
+        
+        # Skip empty keywords
+        if not keyword_lower:
+            continue
+        
+        # Skip if keyword is in the exclusion list
+        if keyword_lower in EXCLUDED_KEYWORDS:
+            continue
+        
+        # Skip multi-word phrases that start with capital letters (likely proper names)
+        # e.g., "Weeping Child", "Dark Forest" (but keep lowercase or single words)
+        if " " in keyword and keyword[0].isupper():
+            # This is a multi-word phrase starting with capital letter — likely a proper name
+            continue
+        
+        filtered.append(keyword)
+    
+    return filtered
 
 
 class DeviantArtClient:
@@ -36,11 +79,23 @@ class DeviantArtClient:
             return []
 
         try:
+            # Parse and filter keywords
+            keyword_list = [k.strip() for k in keywords.split(",")]
+            filtered_keywords = filter_keywords(keyword_list)
+            
+            # If no keywords remain after filtering, return empty
+            if not filtered_keywords:
+                logger.info(f"All keywords filtered out from: {keywords}")
+                return []
+            
+            # Rejoin filtered keywords for the API call
+            clean_keywords = ",".join(filtered_keywords)
+            
             token = await self._get_token()
             async with httpx.AsyncClient(timeout=15) as client:
                 resp = await client.get(
                     f"{self.API_BASE}/browse/tags",
-                    params={"tag": keywords, "limit": limit, "mature_content": "false"},
+                    params={"tag": clean_keywords, "limit": limit, "mature_content": "false"},
                     headers={"Authorization": f"Bearer {token}"},
                 )
                 resp.raise_for_status()
@@ -58,7 +113,8 @@ class DeviantArtClient:
                             }
                         )
                 return results
-        except Exception:
+        except Exception as ex:
+            logger.exception(f"Error occurred while searching DeviantArt: {ex}")
             return []
 
 
