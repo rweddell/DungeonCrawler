@@ -1,0 +1,25 @@
+.ambient-audio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.audio-name {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--ink-mid);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mute-btn {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  padding: 2px;
+  opacity: 0.7;
+  transition: opacity 0.12s;
+}
+.mute-btn:hover { opacity: 1; }

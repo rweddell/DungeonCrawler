@@ -1,0 +1,10 @@
+{
+  "ollama_model": "mistral:instruct",
+  "context_length": 50,
+  "auto_save": true,
+  "auto_save_interval": 5,
+  "audio_enabled": true,
+  "audio_volume": 0.7,
+  "images_enabled": true,
+  "theme": "parchment"
+}

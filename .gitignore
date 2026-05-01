@@ -1,0 +1,17 @@
+*__pycache__
+*/__pydantic_core__
+*/.pytest_cache/
+*/.vscode/
+*/.env
+*/.env.local
+*/.env.*.local
+*/.venv/    
+
+*node_modules
+*.pyc
+.venv
+
+characters*
+saves*
+audio_cache*
+TODO.txt

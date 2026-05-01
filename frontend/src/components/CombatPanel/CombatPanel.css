@@ -1,0 +1,109 @@
+.combat-panel {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.combat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.combat-title {
+  font-family: var(--font-fantasy);
+  font-size: 1rem;
+  color: var(--red-mid);
+}
+
+.combat-round {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  background: rgba(107, 26, 26, 0.12);
+  border: 1px solid var(--red-mid);
+  color: var(--red-dark);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.section-header {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  border-bottom: 1px solid var(--parchment-dark);
+  padding-bottom: 2px;
+  margin-bottom: 0.4rem;
+}
+
+.initiative-list { display: flex; flex-direction: column; gap: 3px; }
+
+.initiative-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3px 6px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--ink-mid);
+}
+.initiative-row.current-turn {
+  background: rgba(139, 105, 20, 0.15);
+  border-color: var(--gold);
+  color: var(--ink-dark);
+}
+.initiative-row.defeated { opacity: 0.4; text-decoration: line-through; }
+
+.initiative-num {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--gold);
+  min-width: 22px;
+}
+
+.initiative-name { flex: 1; }
+.player-name { font-weight: 600; color: var(--ink-dark); }
+
+.initiative-hp {
+  font-size: 0.75rem;
+  color: var(--red-dark);
+  font-weight: 600;
+}
+
+.initiative-conditions {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.cond-badge {
+  font-size: 0.6rem;
+  background: rgba(107, 26, 26, 0.12);
+  border: 1px solid var(--red-mid);
+  color: var(--red-dark);
+  padding: 0 4px;
+  border-radius: 8px;
+}
+
+.combat-log-scroll {
+  max-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.combat-log-entry {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--ink-mid);
+  padding: 2px 4px;
+  border-radius: 2px;
+  border-left: 2px solid var(--parchment-dark);
+}

@@ -1,0 +1,16 @@
+{
+  "id": "the-sunken-library",
+  "title": "The Sunken Library of Aldrath",
+  "synopsis": "A scholar's expedition gone wrong. You were hired to retrieve an ancient tome from the ruins of a wizard's library that sank beneath a coastal cliff centuries ago. Now the ruins are flooded, haunted, and something old has awakened.",
+  "opening_narration": "The sea caves of the Aldrath coast glow with bioluminescent algae, casting everything in a pale blue-green light. Your rowboat grinds against a submerged stone step — the entrance to what was once the grand library of the archmage Aldrath, swallowed by the sea a hundred years ago when the cliffs gave way.\n\nYour employer, the Historian's Guild, wants the Codex of Tides retrieved — an ancient tome said to contain the secrets of the deep ocean. Others want it too. You can already see torch-light flickering somewhere deeper in the ruins.",
+  "setting": "The sunken coastal ruins of an ancient wizard's library. Flooded chambers, crumbling stone, bioluminescent sea-life, and hidden depths.",
+  "npcs": [
+    {"name": "Researcher Mira Thorne", "description": "A nervous young scholar who hired you and is waiting at the surface.", "role": "quest_giver"},
+    {"name": "The Tide Wraith", "description": "The restless spirit of Aldrath himself, bound to protect his library.", "role": "obstacle"},
+    {"name": "Salazar", "description": "A rival treasure hunter, ruthless but pragmatic.", "role": "rival"}
+  ],
+  "special_rules": ["Many chambers are partially flooded — swimming checks may be required", "The wraith is drawn to the use of magic", "The Codex location shifts based on the tides"],
+  "tags": ["dungeon", "exploration", "water", "ruins", "original"],
+  "is_custom": false,
+  "filename": "the_sunken_library.json"
+}

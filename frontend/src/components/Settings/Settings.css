@@ -1,0 +1,134 @@
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.settings-panel {
+  width: 480px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-title {
+  font-family: var(--font-fantasy);
+  font-size: 1.4rem;
+  color: var(--gold-light);
+}
+
+.settings-close-btn {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--ink-mid);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.settings-close-btn:hover { background: rgba(0,0,0,0.05); color: var(--red-mid); }
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--parchment-dark);
+}
+.settings-section:last-of-type { border-bottom: none; }
+
+.settings-section-title {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.setting-label {
+  flex: 1;
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  color: var(--ink-dark);
+}
+
+.setting-select, .setting-input {
+  background: rgba(255,255,255,0.5);
+  border: 1px solid var(--brown-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-family: var(--font-serif);
+  font-size: 0.875rem;
+  color: var(--ink-dark);
+  outline: none;
+  width: 160px;
+}
+.setting-select:focus, .setting-input:focus { border-color: var(--gold); }
+
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gold);
+}
+
+.setting-range {
+  flex: 1;
+  accent-color: var(--gold);
+}
+
+.setting-range-val {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--ink-mid);
+  min-width: 36px;
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.saved-badge {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--gold);
+}
+
+.save-settings-btn {
+  background: var(--gold);
+  color: var(--ink-dark);
+  border: 1px solid var(--brown-border);
+  border-radius: 4px;
+  padding: 0.4rem 1.25rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.save-settings-btn:hover:not(:disabled) { background: var(--gold-light); }
+.save-settings-btn:disabled { opacity: 0.5; }
+
+.settings-loading { display: flex; justify-content: center; padding: 2rem; }

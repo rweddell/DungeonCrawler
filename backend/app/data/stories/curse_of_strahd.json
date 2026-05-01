@@ -1,0 +1,16 @@
+{
+  "id": "curse-of-strahd",
+  "title": "Curse of Strahd",
+  "synopsis": "A gothic horror adventure set in the dread domain of Barovia. A mysterious mist draws you into the realm of Strahd von Zarovich, vampire lord, where hope is a scarce commodity and every shadow conceals danger.",
+  "opening_narration": "A thick, unnatural fog rolls in around your boots. One moment you were walking a familiar road; the next, the world has changed. The trees around you are gnarled and grey, their bare branches clawing at a sky the color of a bruise. The air smells of damp earth and something older — decay, perhaps, or the memory of it.\n\nAhead, through the mist, you can make out the shape of a village. A wooden sign above the gate reads: BAROVIA. From somewhere within, you hear the sound of a child weeping.",
+  "setting": "Barovia, a dread domain surrounded by impenetrable mist. Gothic castles, haunted villages, dark forests, and fog-choked valleys.",
+  "npcs": [
+    {"name": "Strahd von Zarovich", "description": "The vampire lord of Barovia. Ancient, cunning, and obsessed.", "role": "villain"},
+    {"name": "Ireena Kolyana", "description": "A young woman in Barovia who bears an uncanny resemblance to Strahd's lost love.", "role": "npc"},
+    {"name": "Madam Eva", "description": "An ancient Vistani seer who can read your fate in the Tarokka cards.", "role": "oracle"}
+  ],
+  "special_rules": ["This is a horror adventure — tension and dread are constant", "Strahd can appear at any time", "The Tarokka card reading determines key item locations"],
+  "tags": ["horror", "gothic", "advanced", "barovia"],
+  "is_custom": false,
+  "filename": "curse_of_strahd.json"
+}

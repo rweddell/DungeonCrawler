@@ -1,0 +1,16 @@
+{
+  "id": "lost-mine-of-phandelver",
+  "title": "The Lost Mine of Phandelver",
+  "synopsis": "A classic introductory adventure set in the Forgotten Realms. You have been hired to escort a wagon to the frontier town of Phandalin, but danger lurks on the road ahead.",
+  "opening_narration": "The town of Neverwinter hums with commerce as you prepare to depart. Your old friend Gundren Rockseeker hired you to escort a wagon of supplies to the small frontier town of Phandalin. Gundren rode ahead with a warrior named Sildar Hallwinter, promising to pay you 10 gold pieces each when you deliver the goods to Barthen's Provisions.\n\nYou are on the Triboar Trail, roughly half a day's journey from Phandalin, when you crest a hill and see two dead horses blocking the road ahead. Ravens circle overhead.",
+  "setting": "The Sword Coast, Forgotten Realms. Rolling farmland, dark pine forests, and rugged foothills. The frontier town of Phandalin lies ahead.",
+  "npcs": [
+    {"name": "Gundren Rockseeker", "description": "A stout dwarf merchant, your employer. He's gone missing.", "role": "quest_giver"},
+    {"name": "Sildar Hallwinter", "description": "A gruff human warrior and agent of the Lords' Alliance.", "role": "ally"},
+    {"name": "Klarg", "description": "A bugbear leader of the Cragmaw goblins, cruel and boastful.", "role": "enemy"}
+  ],
+  "special_rules": ["Ambush encounters are common on the Triboar Trail", "Goblins track player movement in the wilderness"],
+  "tags": ["classic", "beginner", "forgotten-realms", "adventure"],
+  "is_custom": false,
+  "filename": "lost_mine.json"
+}
