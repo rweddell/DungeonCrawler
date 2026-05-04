@@ -1,6 +1,7 @@
 from __future__ import annotations
+import asyncio
 import time
-import httpx
+import requests
 from app.config import settings
 from logging import getLogger
 
@@ -13,8 +14,6 @@ EXCLUDED_KEYWORDS = {
     "baby",
     "infant",
     "toddler",
-    "barovia",
-    "strahd",
     "weeping",
 }
 
@@ -24,7 +23,7 @@ def filter_keywords(keywords: list[str]) -> list[str]:
     Filter out proper names, specific references, and excluded terms from keyword list.
     Returns only generic, usable keywords for image searches.
     """
-    filtered = []
+    filtered = ['scene']
     for keyword in keywords:
         keyword_lower = keyword.lower().strip()
         
@@ -55,64 +54,66 @@ class DeviantArtClient:
         self._token: str | None = None
         self._token_expiry: float = 0
 
-    async def _get_token(self) -> str:
+    def _fetch_token(self) -> str:
         if self._token and time.time() < self._token_expiry - 60:
             return self._token
 
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
-                self.TOKEN_URL,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": settings.deviantart_client_id,
-                    "client_secret": settings.deviantart_client_secret,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            self._token = data["access_token"]
-            self._token_expiry = time.time() + data.get("expires_in", 3600)
-            return self._token
+        resp = requests.post(
+            self.TOKEN_URL,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": settings.deviantart_client_id,
+                "client_secret": settings.deviantart_client_secret,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        token: str = data["access_token"]
+        self._token = token
+        self._token_expiry = time.time() + data.get("expires_in", 3600)
+        return token
+
+    def _search_sync(self, keywords: str, limit: int) -> list[dict]:
+        keyword_list = [k.strip() for k in keywords.split(",")]
+        filtered_keywords = filter_keywords(keyword_list)
+
+        if not filtered_keywords:
+            logger.info(f"All keywords filtered out from: {keywords}")
+            return []
+
+        clean_keywords = ",".join(filtered_keywords)
+        token = self._fetch_token()
+
+        resp = requests.get(
+            f"{self.API_BASE}/browse/tags",
+            params={"tag": clean_keywords, "limit": limit, "mature_content": "false"},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        results = []
+        for item in data.get("results", []):
+            content = item.get("content", {})
+            if content:
+                results.append(
+                    {
+                        "url": content.get("src", ""),
+                        "title": item.get("title", ""),
+                        "author": item.get("author", {}).get("username", ""),
+                        "page_url": item.get("url", ""),
+                    }
+                )
+        return results
 
     async def search(self, keywords: str, limit: int = 5) -> list[dict]:
         if not settings.deviantart_client_id or not settings.deviantart_client_secret:
             return []
 
         try:
-            # Parse and filter keywords
-            keyword_list = [k.strip() for k in keywords.split(",")]
-            filtered_keywords = filter_keywords(keyword_list)
-            
-            # If no keywords remain after filtering, return empty
-            if not filtered_keywords:
-                logger.info(f"All keywords filtered out from: {keywords}")
-                return []
-            
-            # Rejoin filtered keywords for the API call
-            clean_keywords = ",".join(filtered_keywords)
-            
-            token = await self._get_token()
-            async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.get(
-                    f"{self.API_BASE}/browse/tags",
-                    params={"tag": clean_keywords, "limit": limit, "mature_content": "false"},
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                results = []
-                for item in data.get("results", []):
-                    content = item.get("content", {})
-                    if content:
-                        results.append(
-                            {
-                                "url": content.get("src", ""),
-                                "title": item.get("title", ""),
-                                "author": item.get("author", {}).get("username", ""),
-                                "page_url": item.get("url", ""),
-                            }
-                        )
-                return results
+            return await asyncio.to_thread(self._search_sync, keywords, limit)
         except Exception as ex:
             logger.exception(f"Error occurred while searching DeviantArt: {ex}")
             return []

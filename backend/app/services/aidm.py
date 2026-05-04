@@ -25,6 +25,8 @@ NEVER roll dice yourself. NEVER write things like:
 The player rolls their own dice in the UI. Your job is to REQUEST the roll.
 
 When a roll is required, output ROLL_REQUEST on its own line at the TOP of your response, then write the narrative WITHOUT the result (the player hasn't rolled yet):
+A roll is required to determine the outcome of the player's action. 
+You should request a roll when the outcome of an event is uncertain and depends on the character's stats, or when the player explicitly indicates they want to roll for something.     
 
 ROLL_REQUEST: {"roll_type": "ability_check", "ability": "perception", "dc": 14}
 You hold your torch aloft and peer into the darkness of the corridor...
@@ -40,7 +42,10 @@ The player will then send you the roll result as [ROLL RESULT: ...] and you narr
 
 SCENE KEYWORDS — required at the END of every response:
 SCENE_KEYWORDS: keyword1, keyword2, keyword3
-(2-5 words describing the current setting, e.g. "dark forest", "tavern fireplace")
+Output EXACTLY 3 keywords — the most visually distinctive nouns of the current setting.
+These drive an image search, so prefer concrete visual nouns over abstract descriptions.
+Pick the 3 that would best find matching fantasy artwork (e.g. "dungeon, torchlight, iron door").
+Do NOT include character names, NPC names, or abstract words like "tension" or "danger".
 
 COMBAT:
   COMBAT_START — add this line when combat begins
@@ -50,7 +55,9 @@ GENERAL RULES:
 - Maintain world, NPC, and story continuity at all times.
 - Narrate outcomes of [ROLL RESULT] messages the player sends you.
 - Apply the character's stats to all mechanical decisions.
-- Respond only as the Dungeon Master. Never break character."""
+- Respond only as the Dungeon Master. Never break character.
+- Never make up dialogue for the player, but you can and should write dialogue for NPCs.
+"""
 
 
 def _char_summary(char: Character) -> str:
@@ -198,10 +205,10 @@ def _parse_response(raw: str) -> tuple[str, RollRequest | None, list[str], str |
             pass
         narrative = narrative.replace(roll_match.group(0), "").strip()
 
-    # Extract scene keywords
+    # Extract scene keywords — hard cap at 3 regardless of what the LLM outputs
     kw_match = re.search(r"SCENE_KEYWORDS:\s*(.+)$", raw, re.MULTILINE)
     if kw_match:
-        scene_keywords = [k.strip() for k in kw_match.group(1).split(",")]
+        scene_keywords = [k.strip() for k in kw_match.group(1).split(",") if k.strip()][:4]
         narrative = narrative.replace(kw_match.group(0), "").strip()
 
     # Extract combat signals
