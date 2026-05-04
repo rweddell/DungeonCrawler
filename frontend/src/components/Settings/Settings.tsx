@@ -47,22 +47,59 @@ export function Settings({ onClose, onSettingsChange }: SettingsProps) {
         </div>
 
         <div className="settings-section">
-          <h3 className="settings-section-title">Ollama</h3>
-          <div className="setting-row">
-            <label className="setting-label">Model</label>
+          <h3 className="settings-section-title">AI Agents</h3>
+
+          <div className="setting-row setting-row--stacked">
+            <label className="setting-label">
+              Assessor
+              <span className="setting-hint">Decides whether a dice roll is needed</span>
+            </label>
             <select
               className="setting-select"
-              value={settings.ollama_model}
-              onChange={(e) => setSettings({ ...settings, ollama_model: e.target.value })}
+              value={settings.assessor_model}
+              onChange={(e) => setSettings({ ...settings, assessor_model: e.target.value })}
             >
               {models.length === 0 && (
-                <option value={settings.ollama_model}>{settings.ollama_model}</option>
+                <option value={settings.assessor_model}>{settings.assessor_model}</option>
               )}
-              {models.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
+              {models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
+
+          <div className="setting-row setting-row--stacked">
+            <label className="setting-label">
+              Dice Agent
+              <span className="setting-hint">Determines roll type, ability, and DC</span>
+            </label>
+            <select
+              className="setting-select"
+              value={settings.dice_agent_model}
+              onChange={(e) => setSettings({ ...settings, dice_agent_model: e.target.value })}
+            >
+              {models.length === 0 && (
+                <option value={settings.dice_agent_model}>{settings.dice_agent_model}</option>
+              )}
+              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+
+          <div className="setting-row setting-row--stacked">
+            <label className="setting-label">
+              Responder
+              <span className="setting-hint">Narrates the story and resolves outcomes</span>
+            </label>
+            <select
+              className="setting-select"
+              value={settings.responder_model}
+              onChange={(e) => setSettings({ ...settings, responder_model: e.target.value })}
+            >
+              {models.length === 0 && (
+                <option value={settings.responder_model}>{settings.responder_model}</option>
+              )}
+              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+
           <div className="setting-row">
             <label className="setting-label">Context Length (turns)</label>
             <input

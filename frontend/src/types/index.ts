@@ -244,6 +244,9 @@ export interface PlayerAction {
 
 export interface RuntimeSettings {
   ollama_model: string
+  assessor_model: string
+  dice_agent_model: string
+  responder_model: string
   context_length: number
   auto_save: boolean
   auto_save_interval: number

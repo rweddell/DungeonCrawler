@@ -1,5 +1,8 @@
 {
   "ollama_model": "mistral:instruct",
+  "assessor_model": "mistral:instruct",
+  "dice_agent_model": "mistral:instruct",
+  "responder_model": "mistral:instruct",
   "context_length": 50,
   "auto_save": true,
   "auto_save_interval": 5,

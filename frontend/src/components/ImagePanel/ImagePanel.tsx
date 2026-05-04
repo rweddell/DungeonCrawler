@@ -7,9 +7,10 @@ interface ImagePanelProps {
   // Comma-separated string so React's dependency check is value-based, not reference-based
   keywords: string
   enabled: boolean
+  refreshKey?: number
 }
 
-export function ImagePanel({ keywords, enabled }: ImagePanelProps) {
+export function ImagePanel({ keywords, enabled, refreshKey }: ImagePanelProps) {
   const [image, setImage] = useState<DeviantArtImage | null>(null)
   const [loading, setLoading] = useState(false)
   const mountedRef = useRef(true)
@@ -32,7 +33,7 @@ export function ImagePanel({ keywords, enabled }: ImagePanelProps) {
       .finally(() => {
         if (mountedRef.current) setLoading(false)
       })
-  }, [keywords, enabled])
+  }, [keywords, enabled, refreshKey])
 
   if (!enabled) return null
 

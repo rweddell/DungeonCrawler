@@ -82,12 +82,14 @@ class DeviantArtClient:
             logger.info(f"All keywords filtered out from: {keywords}")
             return []
 
-        clean_keywords = ",".join(filtered_keywords)
+        # browse/tags takes a single tag — pick the most specific keyword.
+        # filter_keywords always prepends 'scene', so prefer index 1+ when available.
+        tag = filtered_keywords[1] if len(filtered_keywords) > 1 else filtered_keywords[0]
         token = self._fetch_token()
 
         resp = requests.get(
             f"{self.API_BASE}/browse/tags",
-            params={"tag": clean_keywords, "limit": limit, "mature_content": "false"},
+            params={"tag": tag, "limit": limit, "mature_content": "false"},
             headers={"Authorization": f"Bearer {token}"},
             timeout=15,
         )

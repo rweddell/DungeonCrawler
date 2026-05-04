@@ -1,6 +1,4 @@
 from __future__ import annotations
-import json
-import re
 import uuid
 from pathlib import Path
 from app.config import settings
@@ -44,30 +42,10 @@ async def create_story(data: StoryCreate) -> Story:
     return story
 
 
-async def upload_story_from_text(filename: str, content: str) -> Story:
-    """Parse a freeform .txt upload into a Story object."""
-    lines = content.strip().splitlines()
-
-    title = filename.removesuffix(".txt").replace("_", " ").title()
-    synopsis = ""
-    opening_narration = content.strip()
-
-    # Attempt to extract title from first line if it looks like a title
-    if lines and len(lines[0]) < 100 and not lines[0].endswith("."):
-        title = lines[0].strip()
-        opening_narration = "\n".join(lines[1:]).strip()
-
-    story_id = str(uuid.uuid4())
-    story = Story(
-        id=story_id,
-        title=title,
-        synopsis=synopsis,
-        opening_narration=opening_narration,
-        is_custom=True,
-        filename=f"{story_id}.json",
-    )
-    _story_path(story_id).write_text(story.model_dump_json(indent=2))
-    return story
+async def upload_story_from_json(content: str) -> Story:
+    """Parse a .json upload into a Story object. The id field is replaced with a new UUID."""
+    data = StoryCreate.model_validate_json(content)
+    return await create_story(data)
 
 
 async def delete_story(story_id: str) -> bool:

@@ -107,7 +107,6 @@ function EntryBlock({ entry, character, onRollResult }: {
 export function NarrativeView({ entries, character, isLoading, onAction }: NarrativeViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [inputText, setInputText] = useState('')
-  const [pendingRoll, setPendingRoll] = useState<RollResult | null>(null)
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -120,12 +119,12 @@ export function NarrativeView({ entries, character, isLoading, onAction }: Narra
     const text = inputText.trim()
     if (!text || isLoading) return
     setInputText('')
-    onAction(text, pendingRoll ?? undefined)
-    setPendingRoll(null)
+    onAction(text)
   }
 
   function handleRollResult(result: RollResult) {
-    setPendingRoll(result)
+    if (isLoading) return
+    onAction('', result)
   }
 
   return (
@@ -154,12 +153,6 @@ export function NarrativeView({ entries, character, isLoading, onAction }: Narra
       </div>
 
       <form className="narrative-input-area parchment medieval-border" onSubmit={handleSubmit}>
-        {pendingRoll && (
-          <div className="pending-roll-badge">
-            Roll attached: {pendingRoll.label} = {pendingRoll.total}
-            <button type="button" className="clear-roll-btn" onClick={() => setPendingRoll(null)}>×</button>
-          </div>
-        )}
         <div className="narrative-input-row">
           <span className="quill-icon">✒</span>
           <textarea

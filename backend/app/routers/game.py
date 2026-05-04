@@ -52,7 +52,7 @@ async def start_game(req: GameStartRequest):
         session=session,
         character=character,
         story=story,
-        model=settings.ollama_model,
+        responder_model=settings.responder_model,
     )
 
     return {
@@ -90,7 +90,9 @@ async def player_action(session_id: str, action: PlayerAction):
         character=character,
         story=story,
         action=action,
-        model=settings.ollama_model,
+        assessor_model=settings.assessor_model,
+        dice_agent_model=settings.dice_agent_model,
+        responder_model=settings.responder_model,
         context_limit=settings.context_length,
     )
     _sessions[session_id] = session

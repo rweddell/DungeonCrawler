@@ -198,6 +198,7 @@ function App() {
               <ImagePanel
                 keywords={sceneKeywords}
                 enabled={settings.images_enabled}
+                refreshKey={state.session?.turn_count ?? 0}
               />
             )}
             {state.session ? (

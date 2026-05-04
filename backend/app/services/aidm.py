@@ -2,63 +2,19 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
+from pathlib import Path
+from typing import Literal
 from app.models.character import Character
-from app.models.game_state import (
-    GameSession,
-    NarrativeEntry,
-    RollRequest,
-    PlayerAction,
-)
+from app.models.game_state import GameSession, NarrativeEntry, RollRequest, PlayerAction
 from app.models.story import Story
 from app.services.ollama_client import ollama_client
 
-SYSTEM_PROMPT = """You are an expert Dungeon Master running a D&D 5th Edition solo adventure. Narrate in second person ("You see...", "You hear..."). Be vivid and immersive.
+_PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DICE ROLLS — READ THIS CAREFULLY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NEVER roll dice yourself. NEVER write things like:
-  ✗ "Roll: 1d20 + 3 = 14"
-  ✗ "Rolling for initiative... you get a 7."
-  ✗ "*rolls dice* — 12, success!"
+def _load_prompt(name: str) -> str:
+    return (_PROMPTS_DIR / name).read_text(encoding="utf-8")
 
-The player rolls their own dice in the UI. Your job is to REQUEST the roll.
-
-When a roll is required, output ROLL_REQUEST on its own line at the TOP of your response, then write the narrative WITHOUT the result (the player hasn't rolled yet):
-A roll is required to determine the outcome of the player's action. 
-You should request a roll when the outcome of an event is uncertain and depends on the character's stats, or when the player explicitly indicates they want to roll for something.     
-
-ROLL_REQUEST: {"roll_type": "ability_check", "ability": "perception", "dc": 14}
-You hold your torch aloft and peer into the darkness of the corridor...
-
-Valid roll_types: ability_check, saving_throw, attack_roll
-Valid abilities: strength, dexterity, constitution, intelligence, wisdom, charisma,
-  acrobatics, animal_handling, arcana, athletics, deception, history, insight,
-  intimidation, investigation, medicine, nature, perception, performance, persuasion,
-  religion, sleight_of_hand, stealth, survival
-
-The player will then send you the roll result as [ROLL RESULT: ...] and you narrate the outcome.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SCENE KEYWORDS — required at the END of every response:
-SCENE_KEYWORDS: keyword1, keyword2, keyword3
-Output EXACTLY 3 keywords — the most visually distinctive nouns of the current setting.
-These drive an image search, so prefer concrete visual nouns over abstract descriptions.
-Pick the 3 that would best find matching fantasy artwork (e.g. "dungeon, torchlight, iron door").
-Do NOT include character names, NPC names, or abstract words like "tension" or "danger".
-
-COMBAT:
-  COMBAT_START — add this line when combat begins
-  COMBAT_END   — add this line when combat ends
-
-GENERAL RULES:
-- Maintain world, NPC, and story continuity at all times.
-- Narrate outcomes of [ROLL RESULT] messages the player sends you.
-- Apply the character's stats to all mechanical decisions.
-- Respond only as the Dungeon Master. Never break character.
-- Never make up dialogue for the player, but you can and should write dialogue for NPCs.
-"""
-
+# ─── Shared helpers ───────────────────────────────────────────────────────────
 
 def _char_summary(char: Character) -> str:
     a = char.ability_scores
@@ -71,147 +27,149 @@ def _char_summary(char: Character) -> str:
         "CHA": (a.charisma - 10) // 2,
     }
     mod_str = ", ".join(f"{k}:{'+' if v >= 0 else ''}{v}" for k, v in mods.items())
-    items = [i.name for i in char.inventory.items if i.equipped]
-    equipped = ", ".join(items) if items else "nothing equipped"
+    equipped = ", ".join(i.name for i in char.inventory.items if i.equipped) or "nothing"
     conditions = ", ".join(char.conditions) if char.conditions else "none"
-
     return (
-        f"Character: {char.name} | {char.race} {char.char_class} Level {char.level} | "
-        f"HP: {char.current_hp}/{char.max_hp} | AC: {char.armor_class} | "
-        f"Prof: +{char.proficiency_bonus} | {mod_str} | "
-        f"Equipped: {equipped} | Conditions: {conditions}"
+        f"{char.name} | {char.race} {char.char_class} Lvl {char.level} | "
+        f"HP {char.current_hp}/{char.max_hp} | AC {char.armor_class} | "
+        f"Prof +{char.proficiency_bonus} | {mod_str} | Equipped: {equipped} | Conditions: {conditions}"
     )
 
 
-def _build_messages(
+def _short_context(session: GameSession, character: Character, turns: int = 6) -> str:
+    """Compact recent-history string for the assessor and dice agent."""
+    lines = [f"Character: {_char_summary(character)}"]
+    for entry in session.narrative_history[-turns:]:
+        if entry.role == "aidm":
+            lines.append(f"DM: {entry.content[:300]}")
+        elif entry.role == "player":
+            lines.append(f"Player: {entry.content[:150]}")
+    return "\n".join(lines)
+
+
+# ─── Assessor ─────────────────────────────────────────────────────────────────
+
+_ASSESSOR_SYSTEM = _load_prompt("assessor_system.txt")
+
+
+async def _run_assessor(action_text: str, context: str, model: str) -> bool:
+    messages = [
+        {"role": "system", "content": _ASSESSOR_SYSTEM},
+        {"role": "user", "content": f"Context:\n{context}\n\nAction: {action_text}"},
+    ]
+    try:
+        raw = await ollama_client.chat(model=model, messages=messages)
+        m = re.search(r'\{[^}]*"needs_roll"[^}]*\}', raw, re.DOTALL)
+        if m:
+            return bool(json.loads(m.group(0)).get("needs_roll", False))
+    except Exception:
+        pass
+    return False
+
+
+# ─── Dice Agent ───────────────────────────────────────────────────────────────
+
+_DICE_AGENT_SYSTEM = _load_prompt("dice_agent_system.txt")
+
+_ABILITY_ALIASES: dict[str, str] = {
+    "str": "strength", "dex": "dexterity", "con": "constitution",
+    "int": "intelligence", "wis": "wisdom", "cha": "charisma",
+    "initiative": "dexterity",
+    "animal handling": "animal_handling", "sleight of hand": "sleight_of_hand",
+}
+_VALID_ABILITIES = {
+    "strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma",
+    "acrobatics", "animal_handling", "arcana", "athletics", "deception", "history",
+    "insight", "intimidation", "investigation", "medicine", "nature", "perception",
+    "performance", "persuasion", "religion", "sleight_of_hand", "stealth", "survival",
+}
+_VALID_ROLL_TYPES = {"ability_check", "saving_throw", "attack_roll"}
+
+
+async def _run_dice_agent(action_text: str, context: str, model: str) -> RollRequest | None:
+    messages = [
+        {"role": "system", "content": _DICE_AGENT_SYSTEM},
+        {"role": "user", "content": f"Context:\n{context}\n\nAction: {action_text}"},
+    ]
+    try:
+        raw = await ollama_client.chat(model=model, messages=messages)
+        m = re.search(r'\{[^}]*"roll_type"[^}]*\}', raw, re.DOTALL)
+        if m:
+            data = json.loads(m.group(0))
+            roll_type = data.get("roll_type", "ability_check")
+            raw_ability = str(data.get("ability", "strength")).lower().strip()
+            ability = _ABILITY_ALIASES.get(raw_ability, raw_ability)
+            if ability not in _VALID_ABILITIES:
+                ability = "strength"
+            if roll_type not in _VALID_ROLL_TYPES:
+                roll_type = "ability_check"
+            dc = data.get("dc") or None
+            if dc is not None:
+                dc = int(dc)
+            return RollRequest(roll_type=roll_type, ability=ability, dc=dc)
+    except Exception:
+        pass
+    return None
+
+
+# ─── Responder ────────────────────────────────────────────────────────────────
+
+_RESPONDER_SYSTEM = _load_prompt("responder_system.txt")
+
+
+def _build_responder_messages(
     session: GameSession,
     character: Character,
     story: Story,
     action: PlayerAction,
+    roll_request: RollRequest | None,
     context_limit: int,
 ) -> list[dict]:
-    messages = []
+    messages: list[dict] = [{"role": "system", "content": _RESPONDER_SYSTEM}]
 
-    # Inject character state as a system-adjacent user message
     char_ctx = _char_summary(character)
     story_ctx = f"Story: {story.title}\nSetting: {story.setting}\nSynopsis: {story.synopsis}"
     messages.append({"role": "user", "content": f"[CONTEXT]\n{story_ctx}\n{char_ctx}"})
-    messages.append({"role": "assistant", "content": "Understood. I'll keep these details in mind throughout our session."})
+    messages.append({"role": "assistant", "content": "Understood. I'll keep these details in mind."})
 
-    # Add recent narrative history
-    history = session.narrative_history[-context_limit:]
-    for entry in history:
+    for entry in session.narrative_history[-context_limit:]:
         if entry.role == "aidm":
             messages.append({"role": "assistant", "content": entry.content})
-        elif entry.role == "player":
-            messages.append({"role": "user", "content": entry.content})
-        elif entry.role == "roll":
+        elif entry.role in ("player", "roll"):
             messages.append({"role": "user", "content": entry.content})
 
-    # Current player action
     action_text = action.text
     if action.roll_result:
         r = action.roll_result
-        success_text = ""
-        if r.success is not None:
-            success_text = f" — {'Success' if r.success else 'Failure'}"
+        success_text = f" — {'Success' if r.success else 'Failure'}" if r.success is not None else ""
         action_text += (
-            f"\n[ROLL RESULT: {r.label} | d20: {r.d20} + {r.modifier} = {r.total}"
+            f"\n<<ROLL RESULT: {r.label} | d20: {r.d20} + {r.modifier} = {r.total}"
             + (f" vs DC {r.dc}" if r.dc else "")
             + success_text
-            + "]"
+            + ">>"
         )
-    messages.append({"role": "user", "content": action_text})
+    elif roll_request:
+        ability_label = roll_request.ability.replace("_", " ").title()
+        dc_text = f" DC {roll_request.dc}" if roll_request.dc else ""
+        action_text += (
+            f"\n<<AWAITING ROLL: {ability_label} {roll_request.roll_type.replace('_', ' ')}{dc_text}"
+            f" — stop the narrative before the outcome is resolved>>"
+        )
 
+    messages.append({"role": "user", "content": action_text})
     return messages
 
 
-# Maps natural-language ability/skill names the LLM might write to canonical ability keys
-_ABILITY_ALIASES: dict[str, str] = {
-    "strength": "strength", "str": "strength",
-    "dexterity": "dexterity", "dex": "dexterity", "initiative": "dexterity",
-    "constitution": "constitution", "con": "constitution",
-    "intelligence": "intelligence", "int": "intelligence",
-    "wisdom": "wisdom", "wis": "wisdom",
-    "charisma": "charisma", "cha": "charisma",
-    "acrobatics": "acrobatics", "animal handling": "animal_handling",
-    "arcana": "arcana", "athletics": "athletics", "deception": "deception",
-    "history": "history", "insight": "insight", "intimidation": "intimidation",
-    "investigation": "investigation", "medicine": "medicine", "nature": "nature",
-    "perception": "perception", "performance": "performance",
-    "persuasion": "persuasion", "religion": "religion",
-    "sleight of hand": "sleight_of_hand", "sleight_of_hand": "sleight_of_hand",
-    "stealth": "stealth", "survival": "survival",
-    "attack": "strength", "attack roll": "strength",
-}
-
-
-def _infer_roll_type(raw_ability: str) -> str:
-    lower = raw_ability.lower()
-    if "saving throw" in lower or "save" in lower:
-        return "saving_throw"
-    if "attack" in lower:
-        return "attack_roll"
-    return "ability_check"
-
-
-def _extract_implicit_roll(text: str) -> RollRequest | None:
-    """Last-resort heuristic: detect when the LLM wrote inline roll text instead of ROLL_REQUEST."""
-    lower = text.lower()
-
-    # Pattern: "make a/an <ability> check" or "roll a/an <ability> check/save/saving throw"
-    check_pattern = re.search(
-        r"(?:make|roll)\s+(?:a\s+)?(?:an\s+)?"
-        r"([\w\s]+?)\s+(?:check|saving throw|save|attack roll)",
-        lower,
-    )
-    if check_pattern:
-        raw_ability = check_pattern.group(1).strip()
-        ability = _ABILITY_ALIASES.get(raw_ability)
-        if ability:
-            roll_type = _infer_roll_type(check_pattern.group(0))
-            # Try to find a DC nearby
-            dc_match = re.search(r"\bdc\s*(\d+)\b", lower)
-            dc = int(dc_match.group(1)) if dc_match else None
-            return RollRequest(roll_type=roll_type, ability=ability, dc=dc)
-
-    # Pattern: LLM rolled for the player — "rolling for <ability>", "roll: 1d20"
-    rolled_pattern = re.search(r"rolling\s+for\s+([\w\s]+?)[\.,!]", lower)
-    if rolled_pattern:
-        raw_ability = rolled_pattern.group(1).strip()
-        ability = _ABILITY_ALIASES.get(raw_ability)
-        if ability:
-            dc_match = re.search(r"\bdc\s*(\d+)\b", lower)
-            dc = int(dc_match.group(1)) if dc_match else None
-            return RollRequest(roll_type="ability_check", ability=ability, dc=dc)
-
-    return None
-
-
-def _parse_response(raw: str) -> tuple[str, RollRequest | None, list[str], str | None]:
-    """Parse AIDM raw output into (narrative, roll_request, scene_keywords, combat_signal)."""
-    roll_request: RollRequest | None = None
+def _parse_responder_output(raw: str) -> tuple[str, list[str], Literal["start", "end"] | None]:
+    narrative = raw
     scene_keywords: list[str] = []
     combat_signal: str | None = None
-    narrative = raw
 
-    # Extract structured ROLL_REQUEST tag
-    roll_match = re.search(r"ROLL_REQUEST:\s*(\{.*?\})", raw, re.DOTALL)
-    if roll_match:
-        try:
-            roll_data = json.loads(roll_match.group(1))
-            roll_request = RollRequest(**roll_data)
-        except Exception:
-            pass
-        narrative = narrative.replace(roll_match.group(0), "").strip()
-
-    # Extract scene keywords — hard cap at 3 regardless of what the LLM outputs
     kw_match = re.search(r"SCENE_KEYWORDS:\s*(.+)$", raw, re.MULTILINE)
     if kw_match:
-        scene_keywords = [k.strip() for k in kw_match.group(1).split(",") if k.strip()][:4]
+        scene_keywords = [k.strip() for k in kw_match.group(1).split(",") if k.strip()][:3]
         narrative = narrative.replace(kw_match.group(0), "").strip()
 
-    # Extract combat signals
     if "COMBAT_START" in narrative:
         combat_signal = "start"
         narrative = narrative.replace("COMBAT_START", "").strip()
@@ -219,50 +177,62 @@ def _parse_response(raw: str) -> tuple[str, RollRequest | None, list[str], str |
         combat_signal = "end"
         narrative = narrative.replace("COMBAT_END", "").strip()
 
-    # Fallback: if the LLM ignored ROLL_REQUEST format, try to detect inline roll text
-    if roll_request is None:
-        roll_request = _extract_implicit_roll(narrative)
+    # Strip any metadata tags the model echoed into its output
+    narrative = re.sub(r'<<AWAITING ROLL[^>]*>>', '', narrative).strip()
+    narrative = re.sub(r'<<ROLL RESULT[^>]*>>', '', narrative).strip()
+    narrative = re.sub(r'\[PENDING ROLL[^\]]*\]', '', narrative).strip()
+    narrative = re.sub(r'\[ROLL RESULT[^\]]*\]', '', narrative).strip()
 
-    return narrative, roll_request, scene_keywords, combat_signal
+    # Strip instruction echo: model repeating its own system prompt conditions
+    echo_match = re.search(r'\n{0,2}If (?:the|this) action includes', narrative, re.IGNORECASE)
+    if echo_match:
+        narrative = narrative[:echo_match.start()].strip()
 
+    return narrative, scene_keywords, combat_signal
+
+
+# ─── Public API ───────────────────────────────────────────────────────────────
 
 async def process_action(
     session: GameSession,
     character: Character,
     story: Story,
     action: PlayerAction,
-    model: str,
+    assessor_model: str,
+    dice_agent_model: str,
+    responder_model: str,
     context_limit: int = 50,
 ) -> tuple[GameSession, NarrativeEntry]:
-    """Process a player action and return the updated session + AIDM narrative entry."""
+    """Process a player action through the 3-agent pipeline and return the updated session + entry."""
 
     # Record player action in history
     player_entry_content = action.text
     if action.roll_result:
         r = action.roll_result
         success_str = f" ({'Success' if r.success else 'Failure'})" if r.success is not None else ""
-        player_entry_content = (
-            f"{action.text}\n**{r.label}: {r.total}**{success_str}"
-        )
+        player_entry_content = f"{action.text}\n**{r.label}: {r.total}**{success_str}"
 
-    player_entry = NarrativeEntry(
+    session.narrative_history.append(NarrativeEntry(
         role="player",
         content=player_entry_content,
         timestamp=datetime.utcnow(),
-    )
-    session.narrative_history.append(player_entry)
+    ))
 
-    # Build messages and call Ollama
-    messages = _build_messages(session, character, story, action, context_limit)
-    raw_response = await ollama_client.chat(model=model, messages=messages)
+    # Assessor + dice agent — only for fresh actions, not roll result submissions
+    roll_request: RollRequest | None = None
+    if not action.roll_result:
+        ctx = _short_context(session, character)
+        if await _run_assessor(action.text, ctx, assessor_model):
+            roll_request = await _run_dice_agent(action.text, ctx, dice_agent_model)
 
-    # Parse structured metadata from response
-    narrative, roll_request, scene_keywords, combat_signal = _parse_response(raw_response)
+    # Responder always runs — generates narrative for all cases
+    messages = _build_responder_messages(session, character, story, action, roll_request, context_limit)
+    raw = await ollama_client.chat(model=responder_model, messages=messages)
+    narrative, scene_keywords, combat_signal = _parse_responder_output(raw)
 
-    # Update session
+    # Update session state
     if scene_keywords:
         session.current_scene_keywords = scene_keywords
-
     if combat_signal == "start" and not session.combat_state.active:
         session.combat_state.active = True
         session.combat_state.round = 1
@@ -289,33 +259,32 @@ async def start_session(
     session: GameSession,
     character: Character,
     story: Story,
-    model: str,
+    responder_model: str,
 ) -> NarrativeEntry:
     """Generate the opening narration for a new game session."""
     opening = story.opening_narration or f"You are about to embark on an adventure: {story.title}."
-
     prompt = (
         f"Begin the adventure '{story.title}'. "
         f"The character is {character.name}, a level {character.level} {character.race} {character.char_class}. "
-        f"Opening narration to use as inspiration:\n\n{opening}\n\n"
+        f"Opening narration to draw from:\n\n{opening}\n\n"
         f"Set the scene vividly. End with SCENE_KEYWORDS as instructed."
     )
-
     messages = [
+        {"role": "system", "content": _RESPONDER_SYSTEM},
         {
             "role": "user",
             "content": (
                 f"[CONTEXT]\nStory: {story.title}\nSetting: {story.setting}\n"
-                f"Character: {character.name} | {character.race} {character.char_class} Level {character.level} | "
-                f"HP: {character.max_hp}/{character.max_hp} | AC: {character.armor_class}"
+                f"Character: {character.name} | {character.race} {character.char_class} "
+                f"Level {character.level} | HP: {character.max_hp}/{character.max_hp} | AC: {character.armor_class}"
             ),
         },
         {"role": "assistant", "content": "Understood. Ready to begin."},
         {"role": "user", "content": prompt},
     ]
 
-    raw_response = await ollama_client.chat(model=model, messages=messages)
-    narrative, roll_request, scene_keywords, combat_signal = _parse_response(raw_response)
+    raw = await ollama_client.chat(model=responder_model, messages=messages)
+    narrative, scene_keywords, _ = _parse_responder_output(raw)
 
     if scene_keywords:
         session.current_scene_keywords = scene_keywords
@@ -328,5 +297,4 @@ async def start_session(
     )
     session.narrative_history.append(entry)
     session.updated_at = datetime.utcnow()
-
     return entry

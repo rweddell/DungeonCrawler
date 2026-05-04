@@ -20,10 +20,12 @@ async def get_story(story_id: str):
 
 @router.post("/upload", response_model=Story, status_code=201)
 async def upload_story(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.endswith(".txt"):
-        raise HTTPException(status_code=400, detail="Only .txt files are supported")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
     content = (await file.read()).decode("utf-8", errors="replace")
-    return await story_svc.upload_story_from_text(file.filename, content)
+    if file.filename.endswith(".json"):
+        return await story_svc.upload_story_from_json(content)
+    raise HTTPException(status_code=400, detail="Only .json files are supported. See the README for the required format.")
 
 
 @router.delete("/{story_id}", status_code=204)

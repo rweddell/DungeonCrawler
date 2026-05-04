@@ -93,6 +93,9 @@ class GameStartRequest(BaseModel):
 
 class RuntimeSettings(BaseModel):
     ollama_model: str = "llama3"
+    assessor_model: str = "mistral:instruct"
+    dice_agent_model: str = "mistral:instruct"
+    responder_model: str = "mistral:instruct"
     context_length: int = 50
     auto_save: bool = True
     auto_save_interval: int = 5
