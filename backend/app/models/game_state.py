@@ -50,12 +50,19 @@ class NarrativeEntry(BaseModel):
     combat_signal: Optional[Literal["start", "end"]] = None
 
 
+class GameMemory(BaseModel):
+    people: list[str] = Field(default_factory=list)
+    places: list[str] = Field(default_factory=list)
+    events: list[str] = Field(default_factory=list)
+
+
 class GameSession(BaseModel):
     id: str
     story_id: str
     character_id: str
     narrative_history: list[NarrativeEntry] = Field(default_factory=list)
     combat_state: CombatState = Field(default_factory=CombatState)
+    memory: GameMemory = Field(default_factory=GameMemory)
     turn_count: int = 0
     current_scene_keywords: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -96,6 +103,9 @@ class RuntimeSettings(BaseModel):
     assessor_model: str = "mistral:instruct"
     dice_agent_model: str = "mistral:instruct"
     responder_model: str = "mistral:instruct"
+    assessor_temperature: float = 0.1
+    dice_agent_temperature: float = 0.1
+    responder_temperature: float = 0.8
     context_length: int = 50
     auto_save: bool = True
     auto_save_interval: int = 5

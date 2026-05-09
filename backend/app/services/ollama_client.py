@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+from collections.abc import AsyncGenerator
 import httpx
 from app.config import settings
 
@@ -59,6 +60,33 @@ class OllamaClient:
             resp.raise_for_status()
             data = resp.json()
             return data.get("message", {}).get("content", "")
+
+
+    async def chat_stream(
+        self,
+        model: str,
+        messages: list[dict],
+        options: dict | None = None,
+    ) -> AsyncGenerator[str, None]:
+        payload: dict = {"model": model, "messages": messages, "stream": True}
+        if options:
+            payload["options"] = options
+
+        async with httpx.AsyncClient(timeout=120) as client:
+            async with client.stream("POST", f"{self.base_url}/api/chat", json=payload) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        data = json.loads(line)
+                        chunk: str = data.get("message", {}).get("content", "")
+                        if chunk:
+                            yield chunk
+                        if data.get("done"):
+                            break
+                    except json.JSONDecodeError:
+                        continue
 
 
 ollama_client = OllamaClient()

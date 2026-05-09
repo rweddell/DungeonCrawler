@@ -69,6 +69,22 @@
   border-left-color: var(--parchment-dark) !important;
 }
 
+.entry-streaming {
+  border-left-color: var(--ink-mid) !important;
+}
+
+.streaming-cursor {
+  display: inline-block;
+  color: var(--ink-mid);
+  animation: blink 0.8s step-start infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 .loading-dots {
   font-size: 1.5rem;
   letter-spacing: 0.2em;

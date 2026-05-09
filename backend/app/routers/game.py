@@ -1,7 +1,9 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime
+import json
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from app.models.game_state import (
     GameSession,
     GameStartRequest,
@@ -53,6 +55,7 @@ async def start_game(req: GameStartRequest):
         character=character,
         story=story,
         responder_model=settings.responder_model,
+        responder_temperature=settings.responder_temperature,
     )
 
     return {
@@ -93,6 +96,9 @@ async def player_action(session_id: str, action: PlayerAction):
         assessor_model=settings.assessor_model,
         dice_agent_model=settings.dice_agent_model,
         responder_model=settings.responder_model,
+        assessor_temperature=settings.assessor_temperature,
+        dice_agent_temperature=settings.dice_agent_temperature,
+        responder_temperature=settings.responder_temperature,
         context_limit=settings.context_length,
     )
     _sessions[session_id] = session
@@ -102,6 +108,56 @@ async def player_action(session_id: str, action: PlayerAction):
         await save_manager.save_game(session, character)
 
     return {"entry": entry, "session": session}
+
+
+@router.post("/{session_id}/action/stream")
+async def player_action_stream(session_id: str, action: PlayerAction):
+    session = _get_session(session_id)
+
+    character = await char_svc.get_character(session.character_id)
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    story = await story_svc.get_story(session.story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    settings = _load_settings()
+    stream = await aidm_svc.process_action_stream(
+        session=session,
+        character=character,
+        story=story,
+        action=action,
+        assessor_model=settings.assessor_model,
+        dice_agent_model=settings.dice_agent_model,
+        responder_model=settings.responder_model,
+        assessor_temperature=settings.assessor_temperature,
+        dice_agent_temperature=settings.dice_agent_temperature,
+        responder_temperature=settings.responder_temperature,
+        context_limit=settings.context_length,
+    )
+
+    async def event_generator():
+        async for event in stream:
+            if event["type"] == "chunk":
+                yield f"data: {json.dumps({'type': 'chunk', 'text': event['text']})}\n\n"
+            elif event["type"] == "done":
+                updated_session = event["session"]
+                _sessions[session_id] = updated_session
+                if settings.auto_save and updated_session.turn_count % settings.auto_save_interval == 0:
+                    await save_manager.save_game(updated_session, character)
+                payload = {
+                    "type": "done",
+                    "entry": event["entry"].model_dump(mode="json"),
+                    "session": updated_session.model_dump(mode="json"),
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/{session_id}/save")

@@ -65,6 +65,16 @@ export function Settings({ onClose, onSettingsChange }: SettingsProps) {
               {models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
+          <div className="setting-row">
+            <label className="setting-label">Assessor Temperature</label>
+            <input
+              type="range" min={0} max={2} step={0.05}
+              className="setting-range"
+              value={settings.assessor_temperature}
+              onChange={(e) => setSettings({ ...settings, assessor_temperature: Number(e.target.value) })}
+            />
+            <span className="setting-range-val">{settings.assessor_temperature.toFixed(2)}</span>
+          </div>
 
           <div className="setting-row setting-row--stacked">
             <label className="setting-label">
@@ -82,6 +92,16 @@ export function Settings({ onClose, onSettingsChange }: SettingsProps) {
               {models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
+          <div className="setting-row">
+            <label className="setting-label">Dice Agent Temperature</label>
+            <input
+              type="range" min={0} max={2} step={0.05}
+              className="setting-range"
+              value={settings.dice_agent_temperature}
+              onChange={(e) => setSettings({ ...settings, dice_agent_temperature: Number(e.target.value) })}
+            />
+            <span className="setting-range-val">{settings.dice_agent_temperature.toFixed(2)}</span>
+          </div>
 
           <div className="setting-row setting-row--stacked">
             <label className="setting-label">
@@ -98,6 +118,16 @@ export function Settings({ onClose, onSettingsChange }: SettingsProps) {
               )}
               {models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
+          </div>
+          <div className="setting-row">
+            <label className="setting-label">Responder Temperature</label>
+            <input
+              type="range" min={0} max={2} step={0.05}
+              className="setting-range"
+              value={settings.responder_temperature}
+              onChange={(e) => setSettings({ ...settings, responder_temperature: Number(e.target.value) })}
+            />
+            <span className="setting-range-val">{settings.responder_temperature.toFixed(2)}</span>
           </div>
 
           <div className="setting-row">

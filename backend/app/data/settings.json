@@ -1,8 +1,11 @@
 {
   "ollama_model": "mistral:instruct",
-  "assessor_model": "mistral:instruct",
+  "assessor_model": "llama3:latest",
   "dice_agent_model": "mistral:instruct",
   "responder_model": "mistral:instruct",
+  "assessor_temperature": 0.1,
+  "dice_agent_temperature": 0.1,
+  "responder_temperature": 0.8,
   "context_length": 50,
   "auto_save": true,
   "auto_save_interval": 5,

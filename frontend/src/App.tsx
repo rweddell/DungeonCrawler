@@ -59,18 +59,101 @@ function App() {
 
   async function handleAction(text: string, rollResult?: RollResult) {
     if (!state.session) return
-    dispatch({ type: 'SET_LOADING', payload: true })
-    try {
-      const res = await gameApi.action(state.session.id, {
-        text,
-        roll_result: rollResult ?? null,
+
+    // Show the player's entry immediately so it appears before the DM responds
+    if (text.trim() || rollResult) {
+      const playerContent = rollResult
+        ? `${text}\n**${rollResult.label}: ${rollResult.total}**${rollResult.success !== null ? ` (${rollResult.success ? 'Success' : 'Failure'})` : ''}`
+        : text
+      dispatch({
+        type: 'ADD_ENTRY',
+        payload: { role: 'player', content: playerContent, timestamp: new Date().toISOString(), scene_keywords: [] },
       })
-      dispatch({ type: 'UPDATE_SESSION', payload: res.session })
+    }
+
+    dispatch({ type: 'SET_LOADING', payload: true })
+    dispatch({ type: 'SET_STREAMING_TEXT', payload: '' })
+    try {
+      const response = await fetch(`/api/v1/game/${state.session.id}/action/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, roll_result: rollResult ?? null }),
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let sseBuffer = ''
+      const chunkQueue: string[] = []
+      let donePayload: typeof state.session | null = null
+
+      // Drain the chunk queue to the UI at a controlled rate (every 80ms)
+      const drainInterval = setInterval(() => {
+        if (chunkQueue.length > 0) {
+          dispatch({ type: 'APPEND_STREAMING_TEXT', payload: chunkQueue.shift()! })
+        }
+      }, 80)
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        sseBuffer += decoder.decode(value, { stream: true })
+        const lines = sseBuffer.split('\n')
+        sseBuffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const data = JSON.parse(line.slice(6)) as { type: string; text?: string; session?: typeof state.session }
+            if (data.type === 'chunk' && data.text) {
+              // Split into word+trailing-whitespace tokens so the queue drains one word at a time
+              const tokens = data.text.match(/\S+\s*/g) ?? [data.text]
+              tokens.forEach((t) => chunkQueue.push(t))
+            } else if (data.type === 'done' && data.session) {
+              donePayload = data.session
+            }
+          } catch { /* malformed line */ }
+        }
+      }
+
+      // Flush remaining chunks before applying the done state
+      await new Promise<void>((resolve) => {
+        const flush = setInterval(() => {
+          if (chunkQueue.length > 0) {
+            dispatch({ type: 'APPEND_STREAMING_TEXT', payload: chunkQueue.shift()! })
+          } else {
+            clearInterval(flush)
+            resolve()
+          }
+        }, 80)
+      })
+      clearInterval(drainInterval)
+
+      if (donePayload) {
+        dispatch({ type: 'UPDATE_SESSION', payload: donePayload })
+        dispatch({ type: 'SET_STREAMING_TEXT', payload: null })
+      }
     } catch (e: unknown) {
       toast((e as Error).message ?? 'Error sending action', true)
+      dispatch({ type: 'SET_STREAMING_TEXT', payload: null })
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false })
     }
+  }
+
+  async function handleQuickSave() {
+    if (!state.session) return
+    try {
+      await gameApi.save(state.session.id)
+      toast('Adventure saved!')
+    } catch {
+      toast('Failed to save', true)
+    }
+  }
+
+  function handleStopGame() {
+    if (state.session && !window.confirm('Stop the adventure? Unsaved progress will be lost.')) return
+    dispatch({ type: 'CLEAR_SESSION' })
+    setActiveTab('stories')
   }
 
   function handleLoadSession(sessionId: string) {
@@ -160,6 +243,26 @@ function App() {
             {state.session ? 'Adventure Active' : '▶ Begin Adventure'}
           </button>
         )}
+        {state.session && (
+          <>
+            <button
+              className="quick-save-btn"
+              onClick={handleQuickSave}
+              disabled={state.isLoading}
+              title="Save progress"
+            >
+              💾 Save
+            </button>
+            <button
+              className="stop-adventure-btn"
+              onClick={handleStopGame}
+              disabled={state.isLoading}
+              title="Stop adventure"
+            >
+              ⏹ Stop
+            </button>
+          </>
+        )}
       </nav>
 
       {/* Tab content */}
@@ -206,6 +309,7 @@ function App() {
                 entries={state.session.narrative_history}
                 character={state.character}
                 isLoading={state.isLoading}
+                streamingText={state.streamingText}
                 onAction={handleAction}
               />
             ) : (

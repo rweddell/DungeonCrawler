@@ -16,6 +16,7 @@ interface GameState {
   error: string | null
   currentImage: string | null
   currentAudioUrl: string | null
+  streamingText: string | null
 }
 
 type Action =
@@ -30,6 +31,8 @@ type Action =
   | { type: 'ADD_ENTRY'; payload: NarrativeEntry }
   | { type: 'UPDATE_SESSION'; payload: GameSession }
   | { type: 'CLEAR_SESSION' }
+  | { type: 'SET_STREAMING_TEXT'; payload: string | null }
+  | { type: 'APPEND_STREAMING_TEXT'; payload: string }
 
 function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -61,7 +64,11 @@ function reducer(state: GameState, action: Action): GameState {
     case 'UPDATE_SESSION':
       return { ...state, session: action.payload }
     case 'CLEAR_SESSION':
-      return { ...state, session: null, currentImage: null, currentAudioUrl: null }
+      return { ...state, session: null, currentImage: null, currentAudioUrl: null, streamingText: null }
+    case 'SET_STREAMING_TEXT':
+      return { ...state, streamingText: action.payload }
+    case 'APPEND_STREAMING_TEXT':
+      return { ...state, streamingText: (state.streamingText ?? '') + action.payload }
     default:
       return state
   }
@@ -76,6 +83,7 @@ const initialState: GameState = {
   error: null,
   currentImage: null,
   currentAudioUrl: null,
+  streamingText: null,
 }
 
 interface GameContextValue {

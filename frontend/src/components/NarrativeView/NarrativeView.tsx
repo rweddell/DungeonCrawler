@@ -7,6 +7,7 @@ interface NarrativeViewProps {
   entries: NarrativeEntry[]
   character: Character | null
   isLoading: boolean
+  streamingText: string | null
   onAction: (text: string, rollResult?: RollResult) => void
 }
 
@@ -104,7 +105,7 @@ function EntryBlock({ entry, character, onRollResult }: {
   return null
 }
 
-export function NarrativeView({ entries, character, isLoading, onAction }: NarrativeViewProps) {
+export function NarrativeView({ entries, character, isLoading, streamingText, onAction }: NarrativeViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [inputText, setInputText] = useState('')
 
@@ -143,7 +144,15 @@ export function NarrativeView({ entries, character, isLoading, onAction }: Narra
             onRollResult={handleRollResult}
           />
         ))}
-        {isLoading && (
+        {streamingText !== null && (
+          <div className="entry entry-aidm entry-streaming">
+            {streamingText.split('\n').filter(Boolean).map((p, i) => (
+              <p key={i} className="entry-paragraph">{p}</p>
+            ))}
+            <span className="streaming-cursor">▌</span>
+          </div>
+        )}
+        {isLoading && streamingText === null && (
           <div className="entry entry-aidm entry-loading">
             <span className="loading-dots">
               <span>.</span><span>.</span><span>.</span>

@@ -214,12 +214,19 @@ export interface NarrativeEntry {
   combat_signal?: 'start' | 'end' | null
 }
 
+export interface GameMemory {
+  people: string[]
+  places: string[]
+  events: string[]
+}
+
 export interface GameSession {
   id: string
   story_id: string
   character_id: string
   narrative_history: NarrativeEntry[]
   combat_state: CombatState
+  memory: GameMemory
   turn_count: number
   current_scene_keywords: string[]
   created_at: string
@@ -247,6 +254,9 @@ export interface RuntimeSettings {
   assessor_model: string
   dice_agent_model: string
   responder_model: string
+  assessor_temperature: number
+  dice_agent_temperature: number
+  responder_temperature: number
   context_length: number
   auto_save: boolean
   auto_save_interval: number
